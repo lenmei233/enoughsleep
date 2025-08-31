@@ -270,14 +270,29 @@ class _HomeScreenState extends State<HomeScreen>
                 child: StreamBuilder(
                   stream: Stream.periodic(const Duration(seconds: 1)),
                   builder: (context, snapshot) {
-                    final duration = DateTime.now().difference(sleepService.startTime!);
-                    return Text(
-                      _formatDuration(duration),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    final duration = sleepService.currentSleepDuration;
+                    final isMaxReached = sleepService.hasReachedMaxDuration;
+                    
+                    return Column(
+                      children: [
+                        Text(
+                          _formatDuration(duration),
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: isMaxReached ? Colors.orange : Colors.white,
+                          ),
+                        ),
+                        if (isMaxReached)
+                          Text(
+                            '已达最大时长',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.orange.withOpacity(0.9),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     );
                   },
                 ),

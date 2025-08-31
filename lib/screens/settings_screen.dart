@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:enoughsleep/services/sleep_service.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -96,6 +97,11 @@ class _SettingsScreenState extends State<SettingsScreen>
               
               // 数据管理卡片
               _buildDataManagementCard(sleepService),
+              
+              const SizedBox(height: 20),
+              
+              // 捐赠支持卡片
+              _buildDonationCard(),
               
               const SizedBox(height: 20),
               
@@ -263,6 +269,66 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
             const SizedBox(height: 16),
+            
+            // 一般通知开关
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey[200]!,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.notifications_active_rounded,
+                    color: Color(0xFFFF6B6B),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '通知提醒',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2D3748),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '允许接收应用通知',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _notificationsEnabled,
+                    activeColor: const Color(0xFF4E65FF),
+                    onChanged: (value) {
+                      setState(() {
+                        _notificationsEnabled = value;
+                      });
+                      sleepService.setNotificationsEnabled(value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // 睡眠提醒开关
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -295,7 +361,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '在该睡觉的时候提醒你',
+                          '在设定时间提醒你去睡觉',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -305,16 +371,231 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                   ),
                   Switch(
-                    value: _notificationsEnabled,
+                    value: sleepService.bedtimeReminderEnabled,
                     activeColor: const Color(0xFF4E65FF),
                     onChanged: (value) {
-                      setState(() {
-                        _notificationsEnabled = value;
-                      });
-                      sleepService.setNotificationsEnabled(value);
+                      sleepService.setBedtimeReminderEnabled(value);
                     },
                   ),
                 ],
+              ),
+            ),
+            
+            // 睡眠提醒时间设置
+            if (sleepService.bedtimeReminderEnabled) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _showBedtimeReminderDialog(context, sleepService),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4E65FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF4E65FF).withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        color: Color(0xFF4E65FF),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '提醒时间',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2D3748),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '设置你的睡眠提醒时间',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4E65FF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${sleepService.bedtimeReminderTime.hour.toString().padLeft(2, '0')}:${sleepService.bedtimeReminderTime.minute.toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // 显示下次提醒时间
+              if (sleepService.nextReminderTime != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        color: Colors.green[700],
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '下次提醒: ${sleepService.nextReminderTime!.month}月${sleepService.nextReminderTime!.day}日 ${sleepService.nextReminderTime!.hour.toString().padLeft(2, '0')}:${sleepService.nextReminderTime!.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.blue.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.blue[700],
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '支持Windows、Web和移动平台的定时通知功能。',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+            
+            const SizedBox(height: 12),
+            
+            // 测试通知按钮
+            GestureDetector(
+              onTap: () {
+                sleepService.testNotification();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      '测试通知已发送，请检查您的通知栏 📢',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    backgroundColor: const Color(0xFF4E65FF),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4E65FF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF4E65FF).withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.send_rounded,
+                      color: Color(0xFF4E65FF),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '测试通知',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2D3748),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '发送一个测试通知检查功能',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -493,7 +774,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '版本 1.0.0',
+                            '版本 1.1.0',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
@@ -840,7 +1121,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     showAboutDialog(
       context: context,
       applicationName: 'EnoughSleep',
-      applicationVersion: '1.0.0',
+      applicationVersion: '1.1.0',
       applicationIcon: Container(
         width: 60,
         height: 60,
@@ -938,6 +1219,415 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
       ],
+    );
+  }
+  
+  // 捐赠卡片
+  Widget _buildDonationCard() {
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFFB74D),
+              Color(0xFFFF8A65),
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    '支持开发者',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '如果你觉得 EnoughSleep 对你有帮助，考虑支持一下开发者吧！☕',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _openAlipayDonation,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.payment_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '支付宝',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _openWechatDonation,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.chat_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '微信',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _openGithubSponsor,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.code_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'GitHub',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // 睡眠提醒旹间设置对话框
+  void _showBedtimeReminderDialog(BuildContext context, SleepService sleepService) {
+    TimeOfDay selectedTime = sleepService.bedtimeReminderTime;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4E65FF).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.bedtime_rounded,
+                color: Color(0xFF4E65FF),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              '设置睡眠提醒',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF4E65FF).withOpacity(0.1),
+                      const Color(0xFF92EFFD).withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.bedtime_rounded,
+                      color: Color(0xFF4E65FF),
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4E65FF),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '每天在这个时间提醒你去睡觉',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  final TimeOfDay? picked = await showTimePicker(
+                    context: context,
+                    initialTime: selectedTime,
+                    builder: (context, child) {
+                      return Theme(
+                        data: ThemeData.light().copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: Color(0xFF4E65FF),
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      selectedTime = picked;
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4E65FF),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  '选择时间',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    '取消',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4E65FF), Color(0xFF92EFFD)],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      sleepService.setBedtimeReminderTime(selectedTime);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '睡眠提醒已设置为 ${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')} 😴',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          backgroundColor: const Color(0xFF4E65FF),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      '保存',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 捐赠相关方法
+  void _openAlipayDonation() {
+    _showDonationSnackBar('支付宝捐赠');
+    // 这里可以添加支付宝的链接或二维码
+  }
+  
+  void _openWechatDonation() {
+    _showDonationSnackBar('微信捐赠');
+    // 这里可以添加微信的链接或二维码
+  }
+  
+  void _openGithubSponsor() async {
+    const url = 'https://github.com/sponsors';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    } else {
+      _showDonationSnackBar('GitHub Sponsor');
+    }
+  }
+  
+  void _showDonationSnackBar(String platform) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '感谢你对 $platform 的支持！❤️',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFFFFB74D),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }

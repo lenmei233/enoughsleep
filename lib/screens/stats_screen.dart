@@ -152,6 +152,39 @@ class _StatsScreenState extends State<StatsScreen>
               ],
             ),
             const SizedBox(height: 20),
+            // 添加说明文字
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.orange.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.orange[700],
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '绿线：睡眠目标 | 橙线：24小时上限 | 超过24小时部分不显示',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Container(
               height: 280,
               decoration: BoxDecoration(
@@ -352,9 +385,12 @@ class _StatsScreenState extends State<StatsScreen>
     List<WeeklySleepData> weeklyData,
     int sleepGoal,
   ) {
+    // 设置最大值为24小时，确保图表显示范围不超过24小时
+    const double maxY = 25.0; // 24小时 + 1小时缓冲
+    
     return BarChartData(
       alignment: BarChartAlignment.spaceAround,
-      maxY: sleepGoal + 2, // 图表最大值比目标值高2小时，留出空间
+      maxY: maxY,
       barTouchData: BarTouchData(
         enabled: true,
         touchTooltipData: BarTouchTooltipData(
@@ -382,7 +418,7 @@ class _StatsScreenState extends State<StatsScreen>
       ),
       gridData: FlGridData(
         show: true,
-        horizontalInterval: 1,
+        horizontalInterval: 2, // 每2小时一条线
         verticalInterval: 1,
         getDrawingHorizontalLine: (value) {
           // 突出显示目标线
@@ -391,6 +427,14 @@ class _StatsScreenState extends State<StatsScreen>
               color: Colors.green,
               strokeWidth: 2,
               dashArray: [5, 5],
+            );
+          }
+          // 突出显示24小时线
+          if (value == 24.0) {
+            return FlLine(
+              color: Colors.orange,
+              strokeWidth: 2,
+              dashArray: [3, 3],
             );
           }
           return FlLine(
@@ -428,16 +472,26 @@ class _StatsScreenState extends State<StatsScreen>
           sideTitles: SideTitles(
             showTitles: true,
             getTitlesWidget: (value, meta) {
-              return Text(
-                '${value.toInt()}h',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              );
+              // 只显示偶数小时数，减少标签密度
+              if (value % 2 == 0 && value <= 24) {
+                return Text(
+                  '${value.toInt()}h',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                );
+              }
+              return const Text('');
             },
             interval: 1,
           ),
+        ),
+        topTitles: AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        rightTitles: AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
         ),
       ),
       barGroups: weeklyData.asMap().entries.map((entry) {
@@ -445,14 +499,35 @@ class _StatsScreenState extends State<StatsScreen>
         final data = entry.value;
         final hours = data.duration.inMinutes / 60;
         
+        // 限制显示的最大值为24小时
+        final displayHours = (hours > 24 ? 24 : hours).toDouble();
+        
+        Color barColor;
+        if (displayHours >= sleepGoal) {
+          barColor = Colors.green;
+        } else if (displayHours >= sleepGoal * 0.8) {
+          barColor = Colors.blue;
+        } else {
+          barColor = Colors.orange;
+        }
+        
         return BarChartGroupData(
           x: index,
           barRods: [
             BarChartRodData(
-              toY: hours,
+              toY: displayHours,
               width: 20,
-              color: hours >= sleepGoal ? Colors.green : Colors.blueAccent,
+              color: barColor,
               borderRadius: BorderRadius.circular(4),
+              // 添加渐变效果
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  barColor,
+                  barColor.withOpacity(0.7),
+                ],
+              ),
             ),
           ],
         );
